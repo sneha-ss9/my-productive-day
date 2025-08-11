@@ -175,3 +175,23 @@ function setupTimers() {
     });
   });
 }
+// viewRecordBtn click pe daily-record.html khulega
+document.getElementById("viewRecordBtn").addEventListener("click", function() {
+    window.location.href = "dailyrecord.html";
+});
+   
+
+function saveTaskRecord(taskName, duration) {
+    let date = new Date();
+    let record = {
+        date: date.toLocaleDateString(),
+        day: date.toLocaleDateString('en-US', { weekday: 'long' }),
+        task: taskName,
+        duration: duration,
+        endTime: date.toLocaleTimeString()
+    };
+
+    let existing = JSON.parse(localStorage.getItem("dailyRecords")) || [];
+    existing.push(record);
+    localStorage.setItem("dailyRecords", JSON.stringify(existing));
+}
