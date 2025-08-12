@@ -28,14 +28,13 @@ window.onload = () => {
   setTheme(savedTheme);
   startClock();
   showQuote();
-  loadCheckboxes();
   setupTimers();
+  // ❌ No auto-checkbox load to avoid pre-selected state
 };
 
 // 🕒 Live Clock & Date with Day
 function startClock() {
   const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
   setInterval(() => {
     const now = new Date();
     const dateString = now.toLocaleDateString();
@@ -63,30 +62,31 @@ function showQuote() {
   let index = 0;
   quoteBox.textContent = quotes[index];
   index++;
-
   setInterval(() => {
     quoteBox.textContent = quotes[index];
     index = (index + 1) % quotes.length;
   }, 4000);
 }
 
-// ✅ Checkbox Save
+// ✅ Checkbox Save + Record Save
 const checkboxes = document.querySelectorAll('input[type="checkbox"]');
 
 checkboxes.forEach((box, index) => {
   box.addEventListener('change', () => {
-    const checkedStates = Array.from(checkboxes).map(cb => cb.checked);
-    localStorage.setItem('tasks', JSON.stringify(checkedStates));
-    saveDailyRecord();
+    if (box.checked) {
+      const taskName = document.querySelectorAll('.activity')[index].textContent;
+      const timerData = timersData[index] || { timeSpent: 0, totalDuration: 0 };
+
+      // Calculate time spent at moment of checking
+      if (timerData.startTime) {
+        let elapsedSeconds = Math.floor((Date.now() - timerData.startTime) / 1000);
+        timerData.timeSpent = Math.floor(elapsedSeconds / 60);
+      }
+
+      saveTaskRecord(taskName, timerData.totalDuration, timerData.timeSpent);
+    }
   });
 });
-
-function loadCheckboxes() {
-  const saved = JSON.parse(localStorage.getItem('tasks'));
-  if (saved) {
-    checkboxes.forEach((box, i) => box.checked = saved[i]);
-  }
-}
 
 // ♻ Reset Button
 document.getElementById('resetBtn').addEventListener('click', () => {
@@ -94,53 +94,51 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   localStorage.removeItem('tasks');
 });
 
-// 📋 Daily Record Save
-function saveDailyRecord() {
-  const activities = document.querySelectorAll('.activity');
-  const timeSlots = document.querySelectorAll('.time');
-  const data = [];
+// 📋 Save record to localStorage (No separate "day" property)
+function saveTaskRecord(taskName, totalDurationMin, timeSpentMin) {
+  let now = new Date();
+  let dateWithDay = `${now.toLocaleDateString()} (${now.toLocaleString('en-US', { weekday: 'short' })})`;
 
-  checkboxes.forEach((cb, i) => {
-    if (cb.checked) {
-      data.push({
-        time: timeSlots[i].textContent,
-        task: activities[i].textContent
-      });
-    }
-  });
+  let existing = JSON.parse(localStorage.getItem("dailyRecords")) || [];
 
-  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const now = new Date();
-  const today = now.toLocaleDateString();
-  const dayName = days[now.getDay()];
-  const timestamp = now.toLocaleTimeString();
+  // Prevent duplicate for same task on same date
+  let alreadyExists = existing.some(r => r.date === dateWithDay && r.task === taskName);
+  if (alreadyExists) return;
 
-  const record = {
-    date: `${today} (${dayName})`,
-    time: timestamp,
-    completed: data
+  let record = {
+    date: dateWithDay,
+    task: taskName,
+    totalDuration: totalDurationMin,
+    timeSpent: timeSpentMin,
+    endTime: now.toLocaleTimeString()
   };
 
-  let dailyRecords = JSON.parse(localStorage.getItem('dailyRecords')) || [];
-  dailyRecords.push(record);
-  localStorage.setItem('dailyRecords', JSON.stringify(dailyRecords));
+  existing.push(record);
+  localStorage.setItem("dailyRecords", JSON.stringify(existing));
 }
 
 // 🔍 View Daily Record Button
 document.getElementById('viewRecordBtn').addEventListener('click', () => {
-  window.location.href = "record.html";
+  window.location.href = "dailyrecord.html";
 });
+
+// Store timer data per task
+let timersData = [];
 
 // ⏳ Stopwatch / Countdown Feature
 function setupTimers() {
   const tasks = document.querySelectorAll('.task');
 
-  tasks.forEach(task => {
+  tasks.forEach((task, idx) => {
     const btn = task.querySelector('.start-btn');
     const timerDisplay = task.querySelector('.timer');
     let countdown;
     let running = false;
     let remainingSeconds;
+    let startTime;
+    let totalDurationMin;
+
+    timersData[idx] = { totalDuration: 0, timeSpent: 0, startTime: null };
 
     function getSecondsFromDisplay() {
       const parts = timerDisplay.textContent.split(':');
@@ -150,6 +148,12 @@ function setupTimers() {
     btn.addEventListener('click', () => {
       if (!running) {
         remainingSeconds = getSecondsFromDisplay();
+        totalDurationMin = Math.floor(remainingSeconds / 60);
+        timersData[idx].totalDuration = totalDurationMin;
+
+        startTime = Date.now();
+        timersData[idx].startTime = startTime;
+
         running = true;
         btn.textContent = "Stop";
 
@@ -160,6 +164,7 @@ function setupTimers() {
             timerDisplay.textContent = "00:00";
             btn.textContent = "Done";
             running = false;
+            timersData[idx].timeSpent = totalDurationMin;
             return;
           }
           let mins = Math.floor(remainingSeconds / 60);
@@ -171,27 +176,9 @@ function setupTimers() {
         clearInterval(countdown);
         running = false;
         btn.textContent = "Start";
+        let elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+        timersData[idx].timeSpent = Math.floor(elapsedSeconds / 60);
       }
     });
   });
-}
-// viewRecordBtn click pe daily-record.html khulega
-document.getElementById("viewRecordBtn").addEventListener("click", function() {
-    window.location.href = "dailyrecord.html";
-});
-   
-
-function saveTaskRecord(taskName, duration) {
-    let date = new Date();
-    let record = {
-        date: date.toLocaleDateString(),
-        day: date.toLocaleDateString('en-US', { weekday: 'long' }),
-        task: taskName,
-        duration: duration,
-        endTime: date.toLocaleTimeString()
-    };
-
-    let existing = JSON.parse(localStorage.getItem("dailyRecords")) || [];
-    existing.push(record);
-    localStorage.setItem("dailyRecords", JSON.stringify(existing));
 }

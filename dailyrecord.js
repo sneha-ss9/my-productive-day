@@ -7,7 +7,6 @@ function displayRecords() {
   tableBody.innerHTML = ""; // Clear old rows
 
   if (records.length === 0) {
-    // Show "No data found" message
     let row = `<tr>
       <td colspan="6" class="no-data">📭 No data found</td>
     </tr>`;
@@ -17,9 +16,9 @@ function displayRecords() {
       let row = `<tr>
         <td>${index + 1}</td>
         <td>${rec.date}</td>
-        <td>${rec.day}</td>
         <td>${rec.task}</td>
-        <td>${rec.duration}</td>
+        <td>${rec.totalDuration || "-"}</td>
+        <td>${rec.timeSpent || "-"}</td>
         <td>${rec.endTime}</td>
       </tr>`;
       tableBody.innerHTML += row;
